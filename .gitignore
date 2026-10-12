@@ -1,0 +1,17 @@
+node_modules/
+.expo/
+dist/
+web-build/
+coverage/
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.log
+android/
+ios/
+.DS_Store
+
+telas/
+.claude/
+.clinerules

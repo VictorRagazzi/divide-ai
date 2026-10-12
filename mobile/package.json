@@ -1,0 +1,62 @@
+{
+  "name": "divide-ai-mobile",
+  "main": "expo-router/entry",
+  "version": "0.1.0",
+  "dependencies": {
+    "@expo/ui": "~57.0.22",
+    "@tamagui/config": "2.7.7",
+    "expo": "~57.0.27",
+    "expo-constants": "~57.0.21",
+    "expo-device": "~57.0.2",
+    "expo-font": "~57.0.4",
+    "expo-glass-effect": "~57.0.4",
+    "expo-image": "~57.0.5",
+    "expo-linking": "~57.0.12",
+    "expo-location": "~57.0.20",
+    "expo-router": "~57.0.25",
+    "expo-splash-screen": "~57.0.9",
+    "expo-status-bar": "~57.0.1",
+    "expo-symbols": "~57.0.3",
+    "expo-system-ui": "~57.0.4",
+    "expo-web-browser": "~57.0.3",
+    "leaflet": "1.9.4",
+    "react": "19.2.3",
+    "react-dom": "19.2.3",
+    "react-native": "0.86.3",
+    "react-native-gesture-handler": "~2.32.0",
+    "react-native-reanimated": "4.5.1",
+    "react-native-safe-area-context": "~5.7.0",
+    "react-native-screens": "~4.26.0",
+    "react-native-web": "~0.21.0",
+    "react-native-webview": "13.16.1",
+    "react-native-worklets": "0.10.1",
+    "tamagui": "2.7.7"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/react": "~19.2.2",
+    "expo-doctor": "^1.20.4",
+    "typescript": "~6.0.3"
+  },
+  "scripts": {
+    "start": "expo start",
+    "android": "expo start --android",
+    "web": "expo start --web",
+    "lint": "biome check .",
+    "format": "biome check --write .",
+    "typecheck": "tsc --noEmit",
+    "test:demo": "node --experimental-strip-types --test tests/demo-domain.test.mjs",
+    "test:maps": "node --experimental-strip-types --test tests/maps.test.mjs",
+    "test:addresses": "node --experimental-strip-types --test tests/addresses.test.mjs",
+    "vendor:maps": "node tools/vendor_leaflet.mjs",
+    "check": "npm run lint && npm run typecheck",
+    "doctor": "expo-doctor",
+    "export:android": "expo export --platform android --output-dir dist/android --max-workers 2",
+    "export:web": "expo export --platform web --output-dir dist/web --max-workers 2"
+  },
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "packageManager": "npm@10.9.2",
+  "private": true
+}

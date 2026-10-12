@@ -1,0 +1,50 @@
+NOTA DE CONTEXTO — arquivo de briefing de design preservado
+Este texto descreve o pedido de desenho original e suas revisões. Não é o prompt atual de implementação. Para a passagem de trabalho aos agentes, começar por LEIA_PRIMEIRO.md e Guia_para_agentes.md.
+
+ATUALIZAÇÃO — 8 de outubro de 2026
+Este briefing foi sincronizado com a versão 2 do levantamento. As decisões atuais abaixo substituem as formulações anteriores.
+
+Você vai atuar como designer de produto e UX para o aplicativo móvel Divide aí. Leia o documento de requisitos anexado antes de propor telas. Ele registra decisões de uma conversa anterior; não comece novamente o levantamento do zero.
+
+OBJETIVO
+Definir a navegação, os fluxos e as telas da primeira versão e, depois, criar wireframes. O app conecta passageiros com origem, destino e horário de embarque próximos para dividir uma corrida solicitada por fora no Uber/99. Priorize português brasileiro, clareza, poucos passos, acessibilidade e uso no celular.
+
+REGRAS CENTRAIS
+- Há duas etapas: aceitar a companhia; depois confirmar os detalhes da viagem. Chat e proposta abrem após o aceite mútuo.
+- Antes desse aceite, mostrar nome, nota, quantidade de viagens, distâncias aproximadas, horário e quantidade de passageiros. Não mostrar foto nem endereço exato.
+- Cadastro prevê nome, e-mail, nascimento e foto. Login inicial sempre por OTP no e-mail, sem senha. SMS e WhatsApp ficam para depois. Necessidade de coletar telefone e exclusão definitiva do CPF ainda pendentes. Dados de contato privados.
+- A intenção pode ser para agora ou outra data. Sem marcar “Preciso sair nesse horário”, considerar ±15 minutos. Marcada, respeitar exatamente o horário. A compatibilidade usa a interseção das janelas: 18h e 18h30 flexíveis podem combinar às 18h15. Mostrar horário fixo claramente.
+- Proximidade é a caminhada por caminhos acessíveis até o embarque e, separadamente, do desembarque ao destino final. Respeitar o limite individual nos dois extremos. 500 m ajustáveis seguem como proposta inicial a confirmar; pontos e desvio do carro ainda precisam de definição.
+- Durante a espera, permitir explorar e pular sugestões mantendo uma solicitação pendente. Aceitar outra exige modal que nomeia a solicitação cancelada e a nova. Fechar mantém a anterior; confirmar efetua a troca atômica. Falha preserva a anterior. Aceite mútuo concorrente impede cancelamento silencioso. Após aceite mútuo, negociação exclusiva.
+- Sugestões puladas podem reaparecer ao reabrir o app se continuarem elegíveis e não bloqueadas. Oferecer “Rever sugestões puladas” quando esgotarem.
+- Busca e solicitações pendentes encerram no horário originalmente escolhido, mesmo com flexibilidade; sem prazo adicional de resposta. Viagens já confirmadas continuam válidas.
+- Mostrar comparação A/B/sugestão para embarque, desembarque e horário. Pode adaptar a tabela para cartões no celular.
+- Atalhos: sugestão do app, trajeto completo de A, trajeto completo de B, adicionar parada de embarque ou desembarque. Eles preenchem uma proposta editável.
+- Escolhas diferentes exigem negociação. Confirmar a mesma versão do resumo, não apenas o mesmo botão. Mudanças exigem novas confirmações.
+- O estado final é “Viagem combinada”. O app não solicita o carro, não cobra, não rastreia automaticamente e não garante o repasse. Quem pede e como paga são acertados no chat.
+- Até três passageiros, incluindo acompanhantes. Dois passageiros dividem 50/50; três dividem em terços. Uma conta com acompanhante responde por duas partes.
+- Um grupo com vaga pode encontrar C usando a viagem atualizada. Todos precisam concordar com sua inclusão. A proposta de preservar o trajeto e repetir só as confirmações necessárias ainda precisa ser validada; consulte as pendências no documento.
+- Cancelamento sem multa prevista. Indicador de desistências só considera compromissos confirmados, com critérios ainda em aberto.
+- Após conclusão estimada, um lembrete pergunta se a viagem aconteceu e convida ao feedback. Não presume conclusão.
+- Cada usuário avalia os outros; nota abaixo de três exige explicação. Só pode ver a avaliação recebida depois de também avaliar. Desbloqueio por par num grupo de três é proposta pendente. Não revelar automaticamente por decurso de prazo.
+- Denúncia e bloqueio independem das avaliações. Estrelas não geram banimento automático.
+- Fora desta versão: IA analisando chat, integração de transporte/pagamento, rateio por distância e outras modalidades de economia em grupo.
+
+COMO TRABALHAR
+1. Apresente sua compreensão do fluxo e identifique somente ambiguidades que mudam as telas. Diferencie decisões aprovadas, hipóteses de design e pendências. Não transforme pendências em regras aprovadas; os ±15 minutos já foram confirmados nesta revisão. Faça poucas perguntas prioritárias e continue o que não depender delas.
+2. Proponha mapa de navegação e jornadas: dupla; usuário com acompanhante; terceiro passageiro; escolhas divergentes; alteração após aceite; cancelamento; ausência; avaliação recíproca.
+3. Monte um inventário de telas. Para cada tela, informe objetivo, conteúdo, ações, estados de espera/erro/vazio e requisito atendido. Evite transformar cada estado em uma tela independente sem necessidade.
+4. Faça wireframes de baixa fidelidade do fluxo principal e das variações críticas. Inclua microtextos reais em português. Explore como alternar entre chat e resumo sem perder o contexto e como comparar trajetos no celular.
+5. Valide os wireframes contra as regras do documento. Só depois avance para componentes e identidade visual. Não implemente backend nem acrescente funcionalidades ao escopo sem sinalizar.
+
+SE VOCÊ TIVER ACESSO AO FIGMA
+Verifique primeiro se pode criar e editar conteúdo nativo, e não apenas ler arquivos. Se puder, crie wireframes editáveis em um novo arquivo ou página específica, usando componentes e Auto Layout quando adequado; não sobrescreva trabalho existente. Organize páginas de fluxos, wireframes e componentes, conecte o protótipo e entregue um link utilizável. Se só houver leitura, explique essa limitação e entregue a especificação das telas sem alegar que criou um arquivo.
+
+COMECE AGORA
+Leia o anexo e apresente o mapa inicial de navegação, a lista priorizada de telas e as poucas decisões pendentes que realmente bloqueiam o primeiro fluxo. Evite começar pela escolha de cores ou pelo desenho de telas isoladas.
+
+DIREÇÃO VISUAL DA REVISÃO
+Reorganizar livremente as telas 02, 03 e 04 mantendo as cores e a ideia de cards. Priorizar uma experiência simples de entender. O modal de troca deve explicar explicitamente a consequência e ter uma ação clara para manter a solicitação atual.
+
+IMPLEMENTAÇÃO — DECISÕES CONFIRMADAS
+A base técnica e o design system inicial foram aprovados; consultar Plano_de_desenvolvimento.md. Piloto Android primeiro, iOS depois. Login sem senha por OTP enviado ao e-mail. Prioridade de custo mínimo. Google Maps/Places/Routes e Resend são propostas para validar, sem contratação realizada.
