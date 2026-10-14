@@ -112,7 +112,7 @@ Os atalhos preenchem propostas; não elegem automaticamente uma opção vencedor
 
 ### RF12 Resumo como referência
 
-O resumo reúne embarque, desembarque, horário previsto de embarque, paradas e divisão dos custos. Os dois podem ajustar os detalhes acordados no chat. A confirmação refere-se à mesma versão do resumo. Alterar um detalhe exige nova confirmação dos demais. “Adicionar parada” é uma ação: marcar esse botão dos dois lados não prova que ambos querem a mesma parada.
+O resumo reúne embarque, desembarque, horário previsto de embarque, paradas e divisão dos custos. Os dois podem ajustar os detalhes acordados no chat. Na demo atual, a confirmação é a própria escolha: cada pessoa vê os detalhes (resumo) de uma opção e a escolhe; há acordo quando os dois escolhem o mesmo conteúdo, e mudar a escolha desfaz o acordo. “Adicionar parada” é uma ação: marcar esse botão dos dois lados não prova que ambos querem a mesma parada.
 
 ### RF13 Chat
 

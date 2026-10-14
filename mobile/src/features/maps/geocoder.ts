@@ -53,6 +53,43 @@ export function readPlaces(value: unknown): Place[] {
   return result.slice(0, 5);
 }
 
+// Resposta do geocoder do backend próprio (GEOCODER_PROVIDER=api):
+// { "places": [{ "title", "detail"?, "street"?, "area"?, "latitude", "longitude", "id"? }] }.
+// O servidor pode ser proxy de qualquer fornecedor (inclusive faturável), com
+// chave e cota guardadas lá; o app só vê este formato.
+export function readApiPlaces(value: unknown): Place[] {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    !("places" in value) ||
+    !Array.isArray(value.places)
+  )
+    return [];
+  const result: Place[] = [];
+  for (const item of value.places.slice(0, 10)) {
+    if (!item || typeof item !== "object") continue;
+    const point = { latitude: item.latitude, longitude: item.longitude };
+    if (!isPoint(point)) continue;
+    const title = text(item.title);
+    if (!title) continue;
+    const detail = text(item.detail);
+    const label = unique([title, detail]);
+    if (result.some((place) => place.label === label)) continue;
+    result.push({
+      id:
+        text(item.id) ||
+        `api${result.length}:${point.latitude}:${point.longitude}`,
+      title,
+      detail,
+      label,
+      point,
+      street: text(item.street),
+      area: text(item.area),
+    });
+  }
+  return result.slice(0, 5);
+}
+
 // Reverse results describe nearby OSM features. Keep the user's exact point and
 // never present a nearby POI as if it were the exact pickup address.
 export function pointLabel(place: Place | undefined, fallback: string) {
@@ -82,27 +119,45 @@ function delay(ms: number, signal?: AbortSignal) {
   });
 }
 
+export type GeocoderOptions = {
+  fetcher?: typeof fetch;
+  /** Base do Photon; deriva `${endpoint}/api/` e `${endpoint}/reverse/`. */
+  endpoint?: string;
+  /** URLs completas (backend próprio); têm prioridade sobre `endpoint`. */
+  searchUrl?: string;
+  reverseUrl?: string;
+  /** Converte o JSON da resposta; o padrão lê o GeoJSON do Photon. */
+  parse?: (json: unknown) => Place[];
+  /** O Photon público só aceita lang=default; o backend próprio pode zerar. */
+  fixedParams?: Record<string, string>;
+  /** Cabeçalhos de autenticação, só para o backend próprio (evita preflight CORS no Photon). */
+  headers?: () => Record<string, string>;
+  intervalMs?: number;
+  timeoutMs?: number;
+};
+
 export function createGeocoder({
   fetcher = fetch,
   endpoint = "https://photon.komoot.io",
+  searchUrl = `${endpoint.replace(/\/$/, "")}/api/`,
+  reverseUrl = `${endpoint.replace(/\/$/, "")}/reverse/`,
+  parse = readPlaces,
+  fixedParams = { lang: "default" }, // The hosted demo does not support lang=pt.
+  headers,
   intervalMs = 1200,
   timeoutMs = 8000,
-}: {
-  fetcher?: typeof fetch;
-  endpoint?: string;
-  intervalMs?: number;
-  timeoutMs?: number;
-} = {}) {
+}: GeocoderOptions = {}) {
   let queue: Promise<unknown> = Promise.resolve();
   let nextAllowed = 0;
   const cache = new Map<string, { at: number; places: Place[] }>();
   const request = (
-    path: string,
+    base: string,
     params: URLSearchParams,
     signal?: AbortSignal,
   ): Promise<Place[]> => {
-    params.set("lang", "default"); // The hosted demo does not support lang=pt.
-    const url = `${endpoint.replace(/\/$/, "")}/${path}/?${params}`;
+    for (const [key, value] of Object.entries(fixedParams))
+      params.set(key, value);
+    const url = `${base}${base.includes("?") ? "&" : "?"}${params}`;
     const job = async () => {
       if (signal?.aborted) throw cancelled();
       const hit = cache.get(url);
@@ -115,14 +170,22 @@ export function createGeocoder({
       signal?.addEventListener("abort", abort, { once: true });
       const timer = setTimeout(abort, timeoutMs);
       try {
-        const response = await fetcher(url, { signal: controller.signal });
+        const response = await fetcher(url, {
+          signal: controller.signal,
+          ...(headers ? { headers: headers() } : {}),
+        }).catch((reason: unknown) => {
+          if (controller.signal.aborted) throw reason;
+          throw new Error(
+            "Sem conexão com a busca de endereços. Tente novamente ou escolha no mapa.",
+          );
+        });
         if (!response.ok)
           throw new Error(
             response.status === 429
               ? "Busca ocupada. Aguarde um pouco e tente novamente."
               : "Não foi possível buscar endereços. Tente novamente ou escolha no mapa.",
           );
-        const places = readPlaces(await response.json());
+        const places = parse(await response.json());
         if (signal?.aborted) throw cancelled();
         cache.set(url, { at: Date.now(), places });
         if (cache.size > 64) cache.delete(cache.keys().next().value as string);
@@ -147,12 +210,12 @@ export function createGeocoder({
     search(query: string, signal?: AbortSignal) {
       const q = query.trim().slice(0, 160);
       if (q.length < 3) return Promise.resolve([]);
-      return request("api", new URLSearchParams({ q, limit: "5" }), signal);
+      return request(searchUrl, new URLSearchParams({ q, limit: "5" }), signal);
     },
     reverse(point: Point, signal?: AbortSignal) {
       if (!isPoint(point)) return Promise.resolve([]);
       return request(
-        "reverse",
+        reverseUrl,
         new URLSearchParams({
           lat: String(point.latitude),
           lon: String(point.longitude),
@@ -163,4 +226,3 @@ export function createGeocoder({
     },
   };
 }
-export const geocoder = createGeocoder();

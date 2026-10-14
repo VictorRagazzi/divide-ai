@@ -2,10 +2,11 @@ import { Redirect, router } from "expo-router";
 import { useState } from "react";
 import { Pressable, ScrollView } from "react-native";
 import { Input, XStack, YStack } from "tamagui";
-import { AppButton, AppModal, AppText } from "../../ui/components";
-import { AgreementTabs } from "./AgreementUi";
+import { services } from "../../services";
+import { AppButton, AppText } from "../../ui/components";
+import { AgreementHeader } from "./AgreementUi";
 import { DemoPage } from "./DemoPage";
-import { clockTime, formatInstant, placeLead } from "./domain";
+import { clockTime, isAgreed, stageHref } from "./domain";
 import { Quiet, TextAction } from "./JourneyUi";
 import { useDemo } from "./provider";
 
@@ -55,97 +56,29 @@ function Chip({
 export default function ChatScreen() {
   const { state, send } = useDemo();
   const [draft, setDraft] = useState("");
-  const [safety, setSafety] = useState(false);
+  if (state.postTrip) return <Redirect href={stageHref(state)} />;
   if (!state.matched || !state.proposal || !state.intent)
     return <Redirect href="/" />;
   const proposal = state.proposal;
-  const intent = state.intent;
   const companion = state.candidates.find((c) => c.id === state.matched);
   if (!companion) return <Redirect href="/" />;
-  const agreed = proposal.mine && proposal.theirs;
+  const agreed = isAgreed(proposal);
   const post = (text: string) => {
     if (!text.trim()) return;
-    send({
-      type: "chat",
-      text,
-      sender: "mine",
-      negotiation: proposal.negotiation,
-    });
-    setDraft("");
+    send(
+      {
+        type: "chat",
+        text,
+        sender: "mine",
+        negotiation: proposal.negotiation,
+      },
+      () => setDraft(""),
+    );
   };
   return (
     <DemoPage
       autoScroll
-      back="/proposta"
-      header={
-        <YStack gap={8} paddingBottom={4}>
-          <XStack
-            paddingHorizontal={12}
-            paddingTop={4}
-            alignItems="center"
-            gap={4}
-          >
-            <TextAction
-              label="←"
-              accessibilityLabel="Voltar"
-              onPress={() => router.replace("/proposta")}
-            />
-            <YStack
-              width={40}
-              height={40}
-              borderRadius={20}
-              backgroundColor="$primary"
-              alignItems="center"
-              justifyContent="center"
-              aria-hidden
-            >
-              <AppText fontSize={17} fontWeight="700" color="$onPrimary">
-                {companion.name.slice(0, 1)}
-              </AppText>
-            </YStack>
-            <YStack flex={1} minWidth={0} paddingLeft={6}>
-              <AppText
-                role="heading"
-                fontSize={17}
-                lineHeight={22}
-                fontWeight="700"
-              >
-                {companion.name}
-              </AppText>
-              <AppText fontSize={11} lineHeight={15} color="$muted">
-                ★ {companion.rating} · {companion.trips} viagens · perfil
-                fictício
-              </AppText>
-            </YStack>
-            <TextAction label="Segurança" onPress={() => setSafety(true)} />
-          </XStack>
-          <YStack paddingHorizontal={22} gap={8}>
-            <YStack
-              borderWidth={1}
-              borderColor="$border"
-              borderRadius={14}
-              paddingVertical={10}
-              paddingHorizontal={12}
-              gap={2}
-              backgroundColor="$surface"
-            >
-              <XStack justifyContent="space-between" gap={8}>
-                <AppText fontSize={12} fontWeight="700">
-                  {formatInstant(proposal.departure, intent.timeZone)} ·
-                  proposta {proposal.version}
-                </AppText>
-                <AppText fontSize={11} color="$primary">
-                  {agreed ? "Viagem combinada" : "Não confirmada"}
-                </AppText>
-              </XStack>
-              <AppText fontSize={12} lineHeight={17} color="$muted">
-                {placeLead(proposal.pickup)} → {placeLead(proposal.dropoff)}
-              </AppText>
-            </YStack>
-            <AgreementTabs active="chat" />
-          </YStack>
-        </YStack>
-      }
+      header={<AgreementHeader active="chat" />}
       footer={
         <>
           <ScrollView
@@ -157,18 +90,20 @@ export default function ChatScreen() {
             {SHORTCUTS.map((text) => (
               <Chip key={text} label={text} onPress={() => post(text)} />
             ))}
-            <Chip
-              dashed
-              label="Demo: simular resposta da companhia"
-              onPress={() =>
-                send({
-                  type: "chat",
-                  sender: "theirs",
-                  text: "Por mim tudo bem! Vamos conferir o resumo antes de confirmar. Eu posso pedir o carro e combinamos o repasse aqui.",
-                  negotiation: proposal.negotiation,
-                })
-              }
-            />
+            {services.config.demo ? (
+              <Chip
+                dashed
+                label="Demo: simular resposta da companhia"
+                onPress={() =>
+                  send({
+                    type: "chat",
+                    sender: "theirs",
+                    text: "Por mim tudo bem! Vamos escolher a mesma opção na proposta. Eu posso pedir o carro e combinamos o repasse aqui.",
+                    negotiation: proposal.negotiation,
+                  })
+                }
+              />
+            ) : null}
           </ScrollView>
           <XStack gap={8} alignItems="center">
             <Input
@@ -193,15 +128,15 @@ export default function ChatScreen() {
             </AppButton>
           </XStack>
           <TextAction
-            label={agreed ? "Ver viagem combinada" : "Ver resumo da proposta"}
-            onPress={() => router.push(agreed ? "/viagem" : "/resumo")}
+            label={agreed ? "Ver viagem combinada" : "Ver proposta"}
+            onPress={() => router.push(agreed ? "/viagem" : "/proposta")}
           />
         </>
       }
     >
       <Quiet>
-        Combine o encontro e quem vai pedir o carro. Depois, atualize o resumo e
-        confirme a proposta.
+        Combine o encontro e quem vai pedir o carro. Depois, escolham a mesma
+        opção na aba Proposta.
       </Quiet>
       <YStack gap={12} role="log" aria-live="polite">
         {state.messages.map((message) => (
@@ -238,7 +173,7 @@ export default function ChatScreen() {
             >
               {message.sender === "mine"
                 ? "Você"
-                : `${companion.name} · simulado`}{" "}
+                : `${companion.name}${services.config.demo ? " · simulado" : ""}`}{" "}
               ·{" "}
               {clockTime(
                 message.at,
@@ -248,18 +183,6 @@ export default function ChatScreen() {
           </YStack>
         ))}
       </YStack>
-      <AppModal
-        open={safety}
-        title="Viaje com cuidado"
-        description="Combine o encontro em um ponto público e confira os detalhes antes de sair."
-        onClose={() => setSafety(false)}
-      >
-        <Quiet>
-          Não compartilhe códigos de acesso nem dados de pagamento na conversa.
-          Este chat é uma demonstração local; não há equipe de moderação ou
-          envio de denúncias conectado.
-        </Quiet>
-      </AppModal>
     </DemoPage>
   );
 }

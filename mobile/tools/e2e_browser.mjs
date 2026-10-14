@@ -53,6 +53,7 @@ const step = async (name, fn) => {
   }
 };
 const btn = (name, exact = false) => page.getByRole("button", { name, exact }).first();
+const radio = (name) => page.getByRole("radio", { name }).first();
 const txt = (t) => page.getByText(t, { exact: false }).first();
 const click = async (name) => {
   await btn(name).waitFor({ timeout: 8000 });
@@ -67,16 +68,42 @@ const body = () => page.locator("body").innerText();
 const url = () => new URL(page.url()).pathname;
 
 async function pickPlace(label, query, optionRe) {
-  await page.getByLabel(label).click();
+  await page.getByRole("textbox", { name: label }).first().click();
   const dlg = page.getByRole("dialog");
   await dlg.getByLabel(label).fill(query);
   await dlg.getByRole("button", { name: optionRe }).first().waitFor({ timeout: 15000 });
   await dlg.getByRole("button", { name: optionRe }).first().click();
 }
 
-await step("home", async () => {
-  await page.goto(BASE + "/", { waitUntil: "load" });
+// O estado do app vive em memória: cada carregamento da página recomeça em /entrar.
+async function onboard() {
+  await page.getByLabel("E-mail").waitFor({ timeout: 20000 });
+  await page.getByLabel("E-mail").fill("ana@exemplo.com");
+  await click("Enviar código");
+  await seen("Digite o código");
+  await shot("codigo");
+  await page.getByLabel(/^Código/).fill("000000");
+  await click("Entrar");
+  await seen("Código incorreto");
+  await page.getByLabel(/^Código/).fill("123456");
+  await click("Entrar");
+  await page.waitForURL(/cadastro/, { timeout: 8000 });
+  await click("Criar perfil");
+  await seen("Informe como você quer ser chamado");
+  await shot("cadastro-erros");
+  await page.getByLabel(/^Nome/).first().fill("Ana Souza");
+  await page.getByLabel("Dia de nascimento").fill("05");
+  await page.getByLabel("Mês de nascimento").fill("03");
+  await page.getByLabel("Ano de nascimento").fill("1998");
+  await shot("cadastro");
+  await click("Criar perfil");
   await page.getByLabel("Local de partida").waitFor({ timeout: 20000 });
+}
+
+await step("entrar e criar perfil", async () => {
+  await page.goto(BASE + "/", { waitUntil: "load" });
+  await onboard();
+  await shot("home-logada");
 });
 
 await step("GPS preenche a partida sem mexer no destino", async () => {
@@ -96,7 +123,7 @@ await step("GPS preenche a partida sem mexer no destino", async () => {
   await shot("gps");
   console.log("   texto:", (await body()).replace(/\s+/g, " ").slice(0, 200));
   await page.reload({ waitUntil: "load" });
-  await page.getByLabel("Local de partida").waitFor({ timeout: 20000 });
+  await onboard();
 });
 
 if (BLOCK_PHOTON) {
@@ -148,7 +175,7 @@ await step("fechar dialog e buscar", async () => {
 });
 
 await step("ver sugestões", async () => {
-  await click("Ver sugestões");
+  await click(/^Ver \d+ pesso/);
   await page.waitForURL(/sugestoes/);
   await seen("Evandro");
   await shot("sugestao-evandro");
@@ -207,38 +234,54 @@ await step("chat", async () => {
   await shot("chat-resposta");
 });
 
-await step("resumo", async () => {
-  await click("Ver resumo");
-  await page.waitForURL(/resumo/);
-  await shot("resumo");
+const choose = async (tile) => {
+  await click(tile);
+  const dialog = page.getByRole("dialog");
+  await dialog.waitFor({ timeout: 5000 });
+  await dialog.getByRole("button", { name: "Escolher esta opção" }).click();
+  await dialog.waitFor({ state: "hidden", timeout: 5000 });
+};
+
+await step("escolher uma opção e divergir", async () => {
+  await click("Proposta");
+  await page.waitForURL(/proposta/);
+  await choose("Sugestão do app");
+  await shot("proposta-minha-escolha");
+  await click("Demo: Bruno prefere outra");
+  await seen("Escolhas diferentes");
+  await shot("proposta-divergiu");
 });
 
-await step("confirmar nos dois lados", async () => {
-  await click("Confirmar esta proposta");
-  await shot("resumo-eu-confirmei");
-  await btn("Demo: simular confirmação").click();
+await step("escolher a mesma e fechar a viagem", async () => {
+  await click("Escolher a mesma de Bruno");
+  await page.getByRole("dialog").getByRole("button", { name: "Escolher esta opção" }).click();
+  await seen("Vocês escolheram a mesma opção");
+  await shot("proposta-combinada");
+  await click("Ver viagem combinada");
   await page.waitForURL(/viagem/, { timeout: 8000 });
   await shot("viagem-combinada");
 });
 
-await step("alterar detalhes -> versão 2", async () => {
-  await click("Alterar detalhes");
+await step("mudar a escolha desfaz o acordo", async () => {
+  await click("Mudar a escolha");
   await page.waitForURL(/proposta/);
   await click("Meu trajeto");
-  await page.waitForFunction(() => /proposta 2/.test(document.body.innerText), null, { timeout: 5000 });
+  await seen("Isso desfaz a viagem combinada");
+  await shot("proposta-desfazer");
+  await page.getByRole("dialog").getByRole("button", { name: "Escolher esta opção" }).click();
+  await seen("Escolhas diferentes");
   await shot("proposta-v2");
-  await click("Conferir resumo");
-  await page.waitForURL(/resumo/);
-  const t = await body();
-  if (/confirmou/i.test(t) && /Você: confirmou/.test(t)) throw new Error("confirmação antiga sobreviveu");
-  await shot("resumo-v2");
 });
 
-await step("reconfirmar nos dois lados", async () => {
-  await btn("Demo: simular confirmação").click();
-  await shot("resumo-companhia-primeiro");
-  await click("Confirmar esta proposta");
+await step("parada só vale no mesmo local", async () => {
+  await click("Adicionar parada");
+  await page.getByRole("dialog").getByRole("button", { name: /Posto de combustível/ }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Escolher esta opção" }).click();
+  await click("Demo: Bruno escolhe a mesma");
+  await seen("Vocês escolheram a mesma opção");
+  await click("Ver viagem combinada");
   await page.waitForURL(/viagem/, { timeout: 8000 });
+  await seen("Posto de combustível");
   await shot("viagem-v2");
 });
 
@@ -267,6 +310,166 @@ await step("retomar e cancelar", async () => {
   await page.waitForURL(/viagens/);
   await shot("apos-cancelar");
   console.log("   texto:", (await body()).replace(/\s+/g, " ").slice(0, 160));
+});
+
+// Escolhe partida e destino (Photon ou toque no mapa) e fecha qualquer diálogo.
+async function setPlaces() {
+  if (BLOCK_PHOTON) {
+    await page.getByRole("textbox", { name: "Local de partida" }).first().click();
+    await click("Escolher no mapa");
+    const map = page.frameLocator("iframe").last().locator("#map");
+    await map.click({ position: { x: 150, y: 420 } });
+    await page.waitForTimeout(1500);
+    await page.getByText("escolher o destino").first().waitFor({ timeout: 4000 });
+    await map.click({ position: { x: 300, y: 480 } });
+    await page.waitForTimeout(1500);
+  } else {
+    await pickPlace("Local de partida", "Rua da Bahia Belo Horizonte", /Lourdes/);
+    if (!(await page.getByRole("dialog").count()))
+      await page.getByRole("textbox", { name: "Para onde?" }).first().click();
+    const dlg = page.getByRole("dialog");
+    await dlg.getByLabel("Para onde?").fill("Praça da Liberdade Belo Horizonte");
+    await dlg.getByRole("button", { name: /Funcion|Savassi|Liberdade/ }).first().waitFor({ timeout: 15000 });
+    await dlg.getByRole("button", { name: /Funcion|Savassi|Liberdade/ }).first().click();
+  }
+  if (await page.getByRole("dialog").count())
+    await page
+      .getByRole("dialog")
+      .getByRole("button", { name: /Conferir|Fechar|Concluir|Confirmar/ })
+      .first()
+      .click();
+}
+
+// Busca, aceita a primeira sugestão e fecha a viagem combinada. Devolve o nome.
+async function agreeTrip() {
+  await page.getByRole("tab", { name: /Buscar/ }).first().click();
+  await page.getByRole("textbox", { name: "Local de partida" }).first().waitFor({ timeout: 10000 });
+  await setPlaces();
+  await click("Buscar companhia");
+  await page.waitForURL(/busca/, { timeout: 8000 });
+  await click(/^Ver \d+ pesso/);
+  await page.waitForURL(/sugestoes/);
+  await page.waitForFunction(() => /Evandro|Bruno|Camila/.test(document.body.innerText), null, { timeout: 8000 });
+  const first = (await body()).match(/Evandro|Bruno|Camila/)?.[0];
+  await click("Aceitar");
+  await page.waitForURL(/espera/);
+  await click("Demo: simular aceite da companhia");
+  await page.waitForURL(/proposta/, { timeout: 8000 });
+  await choose("Sugestão do app");
+  await click(/^Demo: .* escolhe a mesma/);
+  await seen("Vocês escolheram a mesma opção");
+  await click("Ver viagem combinada");
+  await page.waitForURL(/viagem/, { timeout: 8000 });
+  return first;
+}
+
+await step("fim da viagem: o lembrete pergunta se aconteceu", async () => {
+  await agreeTrip();
+  await click("Demo · simular fim da viagem");
+  await page.waitForURL(/lembrete/, { timeout: 8000 });
+  await seen("aconteceu?");
+  await shot("lembrete");
+});
+
+await step("responder depois mantém o lembrete na aba Viagens", async () => {
+  await click("Responder depois");
+  await page.waitForURL(/viagens/);
+  await seen("conte como foi");
+  await shot("viagens-lembrete-pendente");
+  await click("Responder");
+  await page.waitForURL(/lembrete/);
+});
+
+await step("avaliar: texto obrigatório abaixo de 3 estrelas", async () => {
+  await click("Sim, aconteceu");
+  await page.waitForURL(/avaliar/, { timeout: 8000 });
+  await click("Enviar avaliação");
+  await seen("Escolha de 1 a 5 estrelas");
+  await radio("2 estrelas, Fraca").click();
+  await click("Enviar avaliação");
+  await seen("obrigatório para notas abaixo de 3");
+  await shot("avaliar-erro");
+  await page.getByLabel(/O que aconteceu/).first().fill("Atrasou bastante.");
+  await radio("4 estrelas, Boa").click();
+  await shot("avaliar");
+});
+
+await step("avaliação recebida só aparece depois de avaliar", async () => {
+  await click(/^Demo · simular avaliação/);
+  await seen("já avaliou você. Envie a sua para ver");
+  await click("Enviar avaliação");
+  await page.waitForURL(/avaliacao-enviada/, { timeout: 8000 });
+  await seen("Avaliação simulada");
+  await shot("avaliacao-enviada");
+});
+
+await step("concluir arquiva a viagem e libera a nota no perfil", async () => {
+  await click("Concluir");
+  await page.waitForURL(/viagens/);
+  await seen("Viagens anteriores");
+  await seen("Concluída");
+  await shot("viagens-historico");
+  await page.getByRole("tab", { name: /Perfil/ }).first().click();
+  await page.waitForURL(/perfil/);
+  await seen("★ 4,0");
+  await shot("perfil-com-nota");
+});
+
+let blockedName = "";
+await step("viagem não realizada, denúncia e bloqueio", async () => {
+  const name = await agreeTrip();
+  blockedName = name;
+  await click("Demo · simular fim da viagem");
+  await page.waitForURL(/lembrete/);
+  await click("Não aconteceu");
+  await page.waitForURL(/nao-realizada/);
+  await shot("nao-realizada");
+  await radio("A outra pessoa não apareceu").click();
+  await click("Registrar");
+  await seen("Viagem não realizada");
+  await shot("nao-realizada-registrada");
+  await click("Denunciar " + name);
+  await page.waitForURL(/seguranca/);
+  await shot("seguranca");
+  await click("Denunciar " + name);
+  const report = page.getByRole("dialog");
+  await report.getByRole("button", { name: "Enviar denúncia" }).click();
+  await seen("Escolha um motivo");
+  await report.getByRole("radio", { name: "Me senti inseguro(a)" }).click();
+  await report.getByRole("button", { name: "Enviar denúncia" }).click();
+  await report.waitFor({ state: "hidden", timeout: 5000 });
+  await seen("Denúncia registrada");
+  await click("Bloquear " + name);
+  await shot("bloquear-modal");
+  await page
+    .getByRole("dialog")
+    .getByRole("button", { name: "Bloquear " + name })
+    .click();
+  await seen(name + " bloqueado");
+  await shot("seguranca-feita");
+  await click("Voltar");
+  await page.waitForURL(/nao-realizada/);
+  await click("Concluir");
+  await page.waitForURL(/viagens/);
+  await seen("Não realizada");
+});
+
+await step("pessoa bloqueada não aparece mais nas sugestões", async () => {
+  await page.getByRole("tab", { name: /Perfil/ }).first().click();
+  await page.waitForURL(/perfil/);
+  await seen("Pessoas bloqueadas");
+  await shot("perfil-bloqueados");
+  await page.getByRole("tab", { name: /Buscar/ }).first().click();
+  await page.getByRole("textbox", { name: "Local de partida" }).first().waitFor({ timeout: 10000 });
+  await setPlaces();
+  await click("Buscar companhia");
+  await page.waitForURL(/busca/);
+  await click(/^Ver \d+ pesso/);
+  await page.waitForURL(/sugestoes/);
+  await page.waitForFunction(() => /Evandro|Bruno|Camila/.test(document.body.innerText), null, { timeout: 8000 });
+  if (blockedName && (await body()).includes(blockedName))
+    throw new Error(blockedName + " bloqueado ainda aparece nas sugestões");
+  await shot("sugestoes-sem-bloqueado");
 });
 
 await browser.close();

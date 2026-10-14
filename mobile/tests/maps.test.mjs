@@ -91,6 +91,7 @@ test("bundled Leaflet and map runtime scripts parse without remote JS", async ()
   );
   const runtime = source.split("<script>\n")[1].split("</script>")[0];
   new Script(runtime);
-  assert.match(source, /https:\/\/tile.openstreetmap.org\//);
+  assert.match(source, /window\.divideTiles\.url/);
+  assert.doesNotMatch(source, /tile\.openstreetmap\.org/); // vem da configuração
   assert.doesNotMatch(source, /<script src=/);
 });

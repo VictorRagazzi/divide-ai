@@ -1,58 +1,77 @@
 import { Redirect, router } from "expo-router";
-import { YStack } from "tamagui";
-import { AppButton, AppText, Surface } from "../../ui/components";
-import { AgreementDetails, EndNegotiation } from "./AgreementUi";
+import { XStack } from "tamagui";
+import { Surface } from "../../ui/components";
+import { AgreementHeader, EndNegotiation } from "./AgreementUi";
 import { DemoPage } from "./DemoPage";
-import { Quiet, TextAction } from "./JourneyUi";
+import { formatInstant, isAgreed, stageHref } from "./domain";
+import { DemoAction } from "./FormKit";
+import { Quiet, RouteLines, TextAction } from "./JourneyUi";
+import { Chip, StatusSteps } from "./Kit";
 import { useDemo } from "./provider";
 
 export default function TripScreen() {
-  const { state } = useDemo();
-  if (!state.matched || !state.proposal) return <Redirect href="/viagens" />;
-  if (!state.proposal.mine || !state.proposal.theirs)
-    return <Redirect href="/resumo" />;
+  const { state, send } = useDemo();
+  const { proposal, intent } = state;
+  const companion = state.candidates.find((c) => c.id === state.matched);
+  if (state.postTrip) return <Redirect href={stageHref(state)} />;
+  if (!state.matched || !proposal || !intent || !companion)
+    return <Redirect href="/viagens" />;
+  if (!isAgreed(proposal)) return <Redirect href="/proposta" />;
+  const total = intent.passengers + companion.passengers;
+  const split =
+    total === 2
+      ? "metade para cada"
+      : `${intent.passengers}/${total} você · ${companion.passengers}/${total} ${companion.name}`;
   return (
     <DemoPage
-      eyebrow="ACORDO CONFIRMADO"
-      title="Viagem combinada"
-      subtitle={`Vocês dois confirmaram a proposta ${state.proposal.version}.`}
-      back="/viagens"
+      header={<AgreementHeader active="viagem" />}
       footer={
         <>
-          <AppButton onPress={() => router.push("/chat")}>Abrir chat</AppButton>
+          <DemoAction
+            label="Demo · simular fim da viagem"
+            onPress={() => {
+              send({ type: "end-trip", negotiation: proposal.negotiation });
+              router.replace("/lembrete");
+            }}
+          />
+          <TextAction
+            label="Mudar a escolha"
+            onPress={() => router.push("/proposta")}
+          />
           <EndNegotiation />
         </>
       }
     >
-      <YStack
-        width={64}
-        height={64}
-        borderRadius={40}
-        backgroundColor="$success"
-        alignItems="center"
-        justifyContent="center"
-      >
-        <AppText fontSize={32} lineHeight={40} color="$primary">
-          ✓
-        </AppText>
-      </YStack>
-      <AgreementDetails />
+      <StatusSteps
+        steps={[
+          { label: "Você escolheu", state: "done" },
+          { label: `${companion.name} escolheu`, state: "done" },
+          { label: "Pedir o carro", state: "current" },
+        ]}
+      />
       <Surface>
-        <AppText fontSize={15} fontWeight="700">
-          O próximo passo é de vocês
-        </AppText>
+        <RouteLines origin={proposal.pickup} destination={proposal.dropoff} />
+        {proposal.stops.length ? (
+          <Quiet>Parada: {proposal.stops.join(" · ")}</Quiet>
+        ) : null}
+        <XStack gap={8} flexWrap="wrap">
+          <Chip
+            icon="clock"
+            tone="success"
+            label={formatInstant(proposal.departure, intent.timeZone)}
+          />
+          <Chip icon="person" label={`${total} passageiros · ${split}`} />
+        </XStack>
         <Quiet>
-          Combinem no chat quem pede o carro no Uber/99 e como fazem o repasse.
-          O acordo não significa que um carro foi solicitado.
+          A pé (embarque / desembarque): você {proposal.walks[0]} /{" "}
+          {proposal.walks[1]} m · {companion.name} {proposal.walks[2]} /{" "}
+          {proposal.walks[3]} m.
         </Quiet>
       </Surface>
-      <TextAction
-        label="Alterar detalhes da viagem"
-        onPress={() => router.push("/proposta")}
-      />
       <Quiet>
-        Uma alteração pede novas confirmações dos dois. O MVP combina apenas
-        duas contas.
+        Combinem no chat quem pede o carro no Uber/99 e o repasse. O valor é
+        acertado por fora; ninguém paga pelo Divide aí, e o acordo não significa
+        que um carro foi solicitado.
       </Quiet>
     </DemoPage>
   );

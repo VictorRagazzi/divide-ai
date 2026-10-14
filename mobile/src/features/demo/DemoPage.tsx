@@ -1,11 +1,19 @@
 import { type Href, router } from "expo-router";
 import { type ReactNode, useRef } from "react";
-import { KeyboardAvoidingView, Platform, ScrollView } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+} from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Theme, XStack, YStack } from "tamagui";
-import { AppText } from "../../ui/components";
+import { services } from "../../services";
+import { AppText, Notice } from "../../ui/components";
 import { BottomNavigation, type MainTab } from "./BottomNavigation";
-import { TextAction } from "./JourneyUi";
+import { LineIcon } from "./JourneyUi";
+import { DemoBadge, RoundButton } from "./Kit";
+import { useDemo } from "./provider";
 
 export function DemoPage({
   title,
@@ -15,11 +23,15 @@ export function DemoPage({
   children,
   footer,
   back = "/",
+  onBack,
+  noBack = false,
   header,
   flush = false,
   autoScroll = false,
   tab,
   scrollable = true,
+  compact = false,
+  demoNote = "footer",
 }: {
   title?: string;
   eyebrow?: string;
@@ -28,13 +40,23 @@ export function DemoPage({
   children: ReactNode;
   footer?: ReactNode;
   back?: Href;
+  /** Substitui o "voltar" padrão (que leva a `back`). */
+  onBack?: () => void;
+  /** Sem botão de voltar (primeira tela, sem para onde voltar). */
+  noBack?: boolean;
   header?: ReactNode;
   flush?: boolean;
   autoScroll?: boolean;
   tab?: MainTab;
   scrollable?: boolean;
+  /** Título menor e sem eyebrow/subtítulo (telas de decisão rápida). */
+  compact?: boolean;
+  /** "badge": selo DEMO no cabeçalho; "footer": faixa de rodapé tradicional. */
+  demoNote?: "badge" | "footer";
 }) {
   const scroll = useRef<ScrollView>(null);
+  const { error, clearError } = useDemo();
+  const showDemo = services.config.demo;
   return (
     <Theme name="light">
       <YStack flex={1} backgroundColor="#ECEEEA" alignItems="center">
@@ -57,14 +79,15 @@ export function DemoPage({
                 alignItems="center"
                 justifyContent="space-between"
               >
-                {tab ? (
+                {tab || noBack ? (
                   <YStack width={48} minHeight={48} />
                 ) : (
-                  <TextAction
-                    label="←"
-                    accessibilityLabel="Voltar"
-                    onPress={() => router.replace(back)}
-                  />
+                  <RoundButton
+                    label="Voltar"
+                    onPress={onBack ?? (() => router.replace(back))}
+                  >
+                    <LineIcon kind="back" color="#121512" />
+                  </RoundButton>
                 )}
                 <AppText
                   fontSize={20}
@@ -74,16 +97,36 @@ export function DemoPage({
                 >
                   divide aí
                 </AppText>
-                <AppText
-                  width={48}
-                  fontSize={11}
-                  color="$muted"
-                  textAlign="right"
-                >
-                  {step ?? ""}
-                </AppText>
+                {step ? (
+                  <AppText
+                    width={48}
+                    fontSize={11}
+                    color="$muted"
+                    textAlign="right"
+                  >
+                    {step}
+                  </AppText>
+                ) : demoNote === "badge" && showDemo ? (
+                  <YStack width={48} alignItems="flex-end">
+                    <DemoBadge />
+                  </YStack>
+                ) : (
+                  <YStack width={48} />
+                )}
               </XStack>
             )}
+            {error ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fechar aviso"
+                onPress={clearError}
+                style={{ paddingHorizontal: 22, paddingTop: 8 }}
+              >
+                <Notice tone="error" title="Não foi possível concluir" live>
+                  {error}
+                </Notice>
+              </Pressable>
+            ) : null}
             <ScrollView
               scrollEnabled={scrollable}
               ref={scroll}
@@ -103,7 +146,7 @@ export function DemoPage({
               <YStack flex={1} gap={16}>
                 {title ? (
                   <YStack gap={10}>
-                    {eyebrow ? (
+                    {eyebrow && !compact ? (
                       <AppText
                         fontSize={10}
                         lineHeight={16}
@@ -116,14 +159,14 @@ export function DemoPage({
                     ) : null}
                     <AppText
                       role="heading"
-                      fontSize={30}
-                      lineHeight={34}
+                      fontSize={compact ? 26 : 30}
+                      lineHeight={compact ? 31 : 34}
                       fontWeight="700"
-                      letterSpacing={-1.1}
+                      letterSpacing={compact ? -0.8 : -1.1}
                     >
                       {title}
                     </AppText>
-                    {subtitle ? (
+                    {subtitle && !compact ? (
                       <AppText fontSize={14} lineHeight={21} color="$muted">
                         {subtitle}
                       </AppText>
@@ -137,7 +180,7 @@ export function DemoPage({
               <YStack
                 paddingHorizontal={22}
                 paddingTop={12}
-                paddingBottom={10}
+                paddingBottom={demoNote === "footer" ? 10 : 18}
                 gap={8}
                 backgroundColor={flush ? "$surface" : "$background"}
                 borderTopLeftRadius={flush ? 22 : 0}
@@ -147,15 +190,17 @@ export function DemoPage({
                 {tab ? <BottomNavigation active={tab} /> : null}
               </YStack>
             ) : null}
-            <AppText
-              fontSize={10}
-              lineHeight={16}
-              color="$muted"
-              textAlign="center"
-              paddingBottom={6}
-            >
-              MVP demo · companhias simuladas · sem cobranças
-            </AppText>
+            {demoNote === "footer" && showDemo ? (
+              <AppText
+                fontSize={10}
+                lineHeight={16}
+                color="$muted"
+                textAlign="center"
+                paddingBottom={6}
+              >
+                MVP demo · companhias simuladas · sem cobranças
+              </AppText>
+            ) : null}
           </KeyboardAvoidingView>
         </SafeAreaView>
       </YStack>

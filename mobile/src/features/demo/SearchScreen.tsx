@@ -3,14 +3,9 @@ import { router } from "expo-router";
 import { useEffect, useRef, useState } from "react";
 import { Keyboard, Pressable } from "react-native";
 import { type TamaguiElement, Theme, XStack, YStack } from "tamagui";
-import {
-  AppButton,
-  AppModal,
-  AppText,
-  CheckField,
-  Field,
-} from "../../ui/components";
-import { geocoder, type Place, pointLabel } from "../maps/geocoder";
+import { services } from "../../services";
+import { AppButton, AppModal, AppText, CheckField } from "../../ui/components";
+import { type Place, pointLabel } from "../maps/geocoder";
 import { type Endpoint, isPoint, type Point } from "../maps/model";
 import { PlaceFields } from "../maps/PlaceFields";
 import {
@@ -22,13 +17,24 @@ import {
 } from "../maps/places";
 import RealMap from "../maps/RealMap";
 import { DemoPage } from "./DemoPage";
-import { demoCandidates, parseSearch, type SearchFields } from "./domain";
-import { Quiet, TextAction } from "./JourneyUi";
+import {
+  demoCandidates,
+  parseSearch,
+  type SearchFields,
+  stageHref,
+  whenLabel,
+} from "./domain";
+import { LineIcon, Quiet } from "./JourneyUi";
+import { Chip, DateTimeField, NumberField, RoundButton } from "./Kit";
 import { useDemo } from "./provider";
 
+const { geocoder } = services;
+const pad = (value: number) => String(value).padStart(2, "0");
 function localDate(date: Date) {
-  const pad = (value: number) => String(value).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+function localTime(date: Date) {
+  return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
 export default function SearchScreen() {
   const { state, now, send } = useDemo();
@@ -49,15 +55,14 @@ export default function SearchScreen() {
     setFields((current) => ({
       ...current,
       date: localDate(later),
-      time: `${String(later.getHours()).padStart(2, "0")}:${String(later.getMinutes()).padStart(2, "0")}`,
+      time: localTime(later),
     }));
   }, []);
   const [places, setPlaces] = useState(emptyPlaces);
   const placesRef = useRef(places);
   const [selected, setSelected] = useState<Endpoint>("destination");
-  const [sheet, setSheet] = useState<"places" | "time" | "people" | null>(null);
-  const [panelHeight, setPanelHeight] = useState(260);
-  const [compact, setCompact] = useState(false);
+  const [sheet, setSheet] = useState<"places" | "details" | null>(null);
+  const [panelHeight, setPanelHeight] = useState(190);
   const [mapNotice, setMapNotice] = useState("");
   const [locating, setLocating] = useState(false);
   const [errors, setErrors] = useState<
@@ -245,8 +250,8 @@ export default function SearchScreen() {
         });
         setMapNotice(
           results.length
-            ? `Local atualizado. Confira o ponto no mapa.${hint()}`
-            : `Ponto escolhido. Você também pode procurar pelo nome da rua.${hint()}`,
+            ? `Local atualizado.${hint()}`
+            : `Ponto marcado no mapa.${hint()}`,
         );
       })
       .catch(() => {
@@ -254,9 +259,7 @@ export default function SearchScreen() {
           !controller.signal.aborted &&
           placesRef.current[endpoint].revision === revision
         )
-          setMapNotice(
-            `Ponto escolhido no mapa. O nome da rua está indisponível; você pode buscar pelo endereço.${hint()}`,
-          );
+          setMapNotice(`Ponto marcado. Nome da rua indisponível.${hint()}`);
       });
   };
   const locate = async () => {
@@ -328,9 +331,7 @@ export default function SearchScreen() {
   ) => setFields((current) => ({ ...current, [key]: value }));
   const begin = () => {
     if (active) {
-      router.push(
-        state.matched ? "/proposta" : state.pending ? "/espera" : "/busca",
-      );
+      router.push(stageHref(state));
       return;
     }
     const trip = confirmedTrip(placesRef.current);
@@ -340,7 +341,9 @@ export default function SearchScreen() {
         : "destination";
       setErrors({
         [endpoint]:
-          "Escolha um endereço da lista ou um ponto no mapa. Origem e destino devem ser diferentes.",
+          placesRef.current.origin.place && placesRef.current.destination.place
+            ? "Origem e destino devem ser diferentes."
+            : "Escolha um endereço da lista ou um ponto no mapa.",
       });
       focus(endpoint);
       return;
@@ -352,7 +355,7 @@ export default function SearchScreen() {
     );
     setErrors(result.errors);
     if (!result.intent) {
-      setSheet("time");
+      setSheet("details");
       return;
     }
     cancelGps();
@@ -361,36 +364,51 @@ export default function SearchScreen() {
     reverseAbort.current.destination?.abort();
     Keyboard.dismiss();
     setSheet(null);
-    send({
-      type: "start",
-      intent: { ...result.intent, points: trip.points },
-      candidates: demoCandidates(result.intent),
-    });
-    router.push("/busca");
+    // Com backend, os candidatos vêm do servidor junto da resposta do comando.
+    send(
+      {
+        type: "start",
+        intent: { ...result.intent, points: trip.points },
+        candidates: services.config.demo ? demoCandidates(result.intent) : [],
+      },
+      () => router.push("/busca"),
+    );
   };
   const values =
     active && state.intent
       ? { origin: state.intent.origin, destination: state.intent.destination }
       : { origin: places.origin.text, destination: places.destination.text };
+  const timeZone =
+    state.intent?.timeZone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const planned = new Date(`${fields.date}T${fields.time}:00`).getTime();
   const shown =
     active && state.intent
       ? {
-          ...fields,
-          passengers: String(state.intent.passengers),
-          date: localDate(new Date(state.intent.departure)),
-          time: new Intl.DateTimeFormat("pt-BR", {
-            hour: "2-digit",
-            minute: "2-digit",
-            timeZone: state.intent.timeZone,
-          }).format(state.intent.departure),
+          departure: state.intent.departure,
+          people: state.intent.passengers,
+          walking: state.intent.walkingLimit,
+          fixed: state.intent.fixed,
         }
-      : fields;
+      : {
+          departure: Number.isNaN(planned) ? null : planned,
+          people: fields.passengers === "2" ? 2 : 1,
+          walking: Number(fields.walkingLimit),
+          fixed: fields.fixed,
+        };
+  const timeChip = shown.departure
+    ? `${whenLabel(shown.departure, timeZone, now)}${shown.fixed ? " · fixo" : ""}`
+    : "Escolher horário";
+  const peopleChip = `${shown.people} ${shown.people === 1 ? "pessoa" : "pessoas"}${shown.walking === 400 ? "" : ` · ${shown.walking} m`}`;
+  const resume = state.matched
+    ? "Companhia combinada · ver"
+    : state.pending
+      ? `Aguardando ${state.candidates.find((c) => c.id === state.pending)?.name ?? "resposta"} · ver`
+      : "Busca ativa · ver";
   const chooseOnMap = () => {
     interaction.current += 1;
     searchAbort.current?.abort();
     Keyboard.dismiss();
     setSheet(null);
-    setCompact(true);
     setMapNotice(
       `Toque no mapa para escolher ${selected === "origin" ? "a partida" : "o destino"}.`,
     );
@@ -400,20 +418,13 @@ export default function SearchScreen() {
       tab="buscar"
       flush
       scrollable={false}
-      header={<YStack height={8} />}
       footer={
         <AppButton variant="ink" onPress={begin}>
           {active ? "Retomar viagem" : "Buscar companhia"}
         </AppButton>
       }
     >
-      <YStack
-        flex={1}
-        backgroundColor="#E7EBE4"
-        onLayout={(event) => {
-          if (event.nativeEvent.layout.height < 520) setCompact(true);
-        }}
-      >
+      <YStack flex={1} backgroundColor="#E7EBE4">
         <YStack position="absolute" top={0} bottom={0} left={0} right={0}>
           <RealMap
             points={
@@ -430,28 +441,14 @@ export default function SearchScreen() {
           />
         </YStack>
         <YStack
-          margin={16}
-          padding={16}
+          margin={12}
+          padding={12}
           borderRadius={22}
           backgroundColor="$surface"
           gap={10}
           zIndex={1}
           onLayout={(event) => setPanelHeight(event.nativeEvent.layout.height)}
         >
-          <XStack alignItems="center" justifyContent="space-between">
-            <AppText
-              fontSize={24}
-              lineHeight={29}
-              fontWeight="800"
-              letterSpacing={-1}
-            >
-              divide aí ↗
-            </AppText>
-            <TextAction
-              label={compact ? "Opções ⌄" : "Mapa ⌃"}
-              onPress={() => setCompact((value) => !value)}
-            />
-          </XStack>
           <PlaceFields
             values={values}
             selected={selected}
@@ -460,60 +457,50 @@ export default function SearchScreen() {
             onChange={edit}
             refs={mainInputRefs}
           />
-          {!compact ? (
-            <XStack gap={8}>
-              <YStack flex={1} backgroundColor="$background" borderRadius={12}>
-                <TextAction
-                  icon="person"
-                  label={`${shown.passengers} ${shown.passengers === "1" ? "pessoa" : "pessoas"}  ⌄`}
-                  onPress={() => !active && setSheet("people")}
-                />
-              </YStack>
-              <YStack
-                flex={1.4}
-                backgroundColor="$background"
-                borderRadius={12}
-              >
-                <TextAction
-                  icon="clock"
-                  label={
-                    shown.time
-                      ? `${shown.date === localDate(new Date(now)) ? "Hoje" : shown.date.slice(5).split("-").reverse().join("/")} · ${shown.time}  ⌄`
-                      : "Escolher horário"
-                  }
-                  onPress={() => !active && setSheet("time")}
-                />
-              </YStack>
-            </XStack>
-          ) : null}
-          {!active && !compact ? (
-            <TextAction
-              label={locating ? "Localizando…" : "Usar minha localização atual"}
-              onPress={() => void locate()}
+          <XStack gap={8} flexWrap="wrap">
+            {active ? (
+              <Chip
+                tone="success"
+                icon="clock"
+                label={resume}
+                onPress={begin}
+              />
+            ) : null}
+            <Chip
+              icon="clock"
+              label={timeChip}
+              accessibilityLabel={`Horário: ${timeChip}${active ? "" : ". Alterar"}`}
+              onPress={active ? undefined : () => setSheet("details")}
             />
-          ) : null}
+            <Chip
+              icon="person"
+              label={peopleChip}
+              accessibilityLabel={`Pessoas: ${peopleChip}${active ? "" : ". Alterar"}`}
+              onPress={active ? undefined : () => setSheet("details")}
+            />
+          </XStack>
           {mapNotice ? (
-            <AppText role="status" fontSize={12}>
+            <AppText role="status" fontSize={12} lineHeight={17} color="$muted">
               {mapNotice}
             </AppText>
           ) : null}
         </YStack>
+        {active ? null : (
+          <YStack position="absolute" right={12} bottom={44} zIndex={1}>
+            <RoundButton
+              label={locating ? "Localizando…" : "Usar minha localização"}
+              busy={locating}
+              onPress={() => void locate()}
+            >
+              <LineIcon kind="locate" color="#121512" />
+            </RoundButton>
+          </YStack>
+        )}
       </YStack>
       <Theme name="light">
         <AppModal
           open={Boolean(sheet)}
-          title={
-            sheet === "places"
-              ? "Seu caminho"
-              : sheet === "people"
-                ? "Quem vai com você?"
-                : "Quando você quer sair?"
-          }
-          description={
-            sheet === "places"
-              ? "Digite rua, número ou bairro. Inclua a cidade para encontrar o lugar certo."
-              : "Escolha os dados da sua viagem de demonstração."
-          }
+          title={sheet === "places" ? "Seu caminho" : "Quando e com quem"}
           onClose={() => {
             interaction.current += 1;
             Keyboard.dismiss();
@@ -534,23 +521,28 @@ export default function SearchScreen() {
                 refs={inputRefs}
                 autofocus
               />
-              <XStack justifyContent="space-between" gap={12}>
-                <TextAction
-                  label={locating ? "Localizando…" : "Minha localização"}
-                  onPress={() => void locate()}
-                />
-                <TextAction label="Escolher no mapa" onPress={chooseOnMap} />
-              </XStack>
               {errors[selected] ? (
-                <AppText color="$errorText" role="alert">
+                <AppText fontSize={13} color="$errorText" role="alert">
                   {errors[selected]}
                 </AppText>
               ) : null}
+              <PlaceRow
+                icon="locate"
+                label={locating ? "Localizando…" : "Minha localização"}
+                onPress={() => void locate()}
+              />
+              <PlaceRow
+                icon="pin"
+                label="Escolher no mapa"
+                onPress={chooseOnMap}
+              />
               {lookup.status === "loading" ? (
                 <Quiet>Buscando endereços…</Quiet>
               ) : lookup.status === "error" ? (
                 <>
-                  <AppText role="alert">{lookup.error}</AppText>
+                  <AppText fontSize={13} role="alert">
+                    {lookup.error}
+                  </AppText>
                   <AppButton
                     variant="secondary"
                     onPress={() => setSearchAttempt((value) => value + 1)}
@@ -562,12 +554,6 @@ export default function SearchScreen() {
                 <Quiet>
                   Nenhum local encontrado. Inclua a cidade ou escolha no mapa.
                 </Quiet>
-              ) : lookup.status === "idle" ? (
-                <Quiet>
-                  {field.place
-                    ? "Local selecionado. Edite o outro campo ou ajuste no mapa."
-                    : "Digite pelo menos 3 letras para buscar uma rua ou bairro."}
-                </Quiet>
               ) : null}
               {lookup.results.map((place) => (
                 <Pressable
@@ -576,8 +562,8 @@ export default function SearchScreen() {
                   accessibilityLabel={place.label}
                   onPress={() => choose(selected, place)}
                   style={{
-                    minHeight: 64,
-                    paddingVertical: 12,
+                    minHeight: 56,
+                    paddingVertical: 10,
                     borderBottomWidth: 1,
                     borderBottomColor: "#E0E4DA",
                   }}
@@ -586,94 +572,88 @@ export default function SearchScreen() {
                   {place.detail ? <Quiet>{place.detail}</Quiet> : null}
                 </Pressable>
               ))}
-              <Quiet>Endereços por Photon / OpenStreetMap.</Quiet>
-              <AppButton
-                variant="ink"
-                onPress={() => {
-                  Keyboard.dismiss();
-                  setSheet(null);
-                }}
-              >
-                Conferir no mapa
-              </AppButton>
-            </>
-          ) : sheet === "people" ? (
-            <>
-              <XStack gap={12}>
-                {["1", "2"].map((count) => (
-                  <YStack key={count} flex={1}>
-                    <AppButton
-                      selected={fields.passengers === count}
-                      variant={
-                        fields.passengers === count ? "primary" : "secondary"
-                      }
-                      onPress={() => change("passengers", count)}
-                    >
-                      {count === "1" ? "Só eu" : "Com acompanhante"}
-                    </AppButton>
-                  </YStack>
-                ))}
-              </XStack>
-              <Quiet>
-                Até 3 passageiros em duas contas. Com acompanhante, você
-                responde por duas partes do valor.
-              </Quiet>
+              {lookup.results.length ? (
+                <Quiet>Endereços por Photon / OpenStreetMap.</Quiet>
+              ) : null}
             </>
           ) : (
             <>
-              <Field
-                label="Data"
-                hint="AAAA-MM-DD"
-                value={fields.date}
-                error={errors.date}
-                onChangeText={(v) => change("date", v)}
-              />
-              <Field
-                label="Horário de saída"
-                hint="HH:MM · horário local"
-                value={fields.time}
-                error={errors.time}
-                onChangeText={(v) => change("time", v)}
-                keyboardType="numbers-and-punctuation"
+              <DateTimeField
+                date={fields.date}
+                time={fields.time}
+                now={now}
+                error={errors.time ?? errors.date}
+                onChange={(date, time) => {
+                  setErrors({});
+                  setFields((current) => ({ ...current, date, time }));
+                }}
               />
               <CheckField
                 label="Preciso sair nesse horário"
                 checked={fields.fixed}
-                onChange={(v) => change("fixed", v)}
+                onChange={(value) => change("fixed", value)}
               />
-              <Quiet>
-                {fields.fixed
-                  ? "Horário fixo."
-                  : "Você aceita sair até 15 minutos antes ou depois."}{" "}
-                A busca encerra no horário original.
-              </Quiet>
-              <Field
-                label="Limite de caminhada (metros)"
-                hint="Separadamente no embarque e no desembarque."
+              <CheckField
+                label="Vou com acompanhante"
+                checked={fields.passengers === "2"}
+                onChange={(value) => change("passengers", value ? "2" : "1")}
+              />
+              <NumberField
+                label="Caminhada máxima (metros)"
                 value={fields.walkingLimit}
+                step={100}
+                min={0}
+                max={2000}
                 error={errors.walkingLimit}
-                onChangeText={(v) => change("walkingLimit", v)}
-                keyboardType="number-pad"
+                onChange={(value) => {
+                  setErrors({});
+                  change("walkingLimit", value);
+                }}
               />
+              <AppButton
+                onPress={() => {
+                  const result = parseSearch(
+                    { ...fields, origin: "Origem", destination: "Destino" },
+                    Date.now(),
+                  );
+                  setErrors(result.errors);
+                  if (result.intent) setSheet(null);
+                }}
+              >
+                Concluir
+              </AppButton>
             </>
           )}
-          {sheet !== "places" ? (
-            <AppButton
-              onPress={() => {
-                const result = parseSearch(
-                  { ...fields, origin: "Origem", destination: "Destino" },
-                  Date.now(),
-                );
-                setErrors(result.errors);
-                if (result.intent) setSheet(null);
-                else setSheet("time");
-              }}
-            >
-              Salvar escolhas
-            </AppButton>
-          ) : null}
         </AppModal>
       </Theme>
     </DemoPage>
+  );
+}
+
+function PlaceRow({
+  icon,
+  label,
+  onPress,
+}: {
+  icon: "locate" | "pin";
+  label: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 52,
+        flexDirection: "row",
+        alignItems: "center",
+        gap: 12,
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <LineIcon kind={icon} color="#121512" />
+      <AppText fontWeight="600">{label}</AppText>
+    </Pressable>
   );
 }

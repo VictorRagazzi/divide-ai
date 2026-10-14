@@ -10,6 +10,7 @@ Atualizado em 11 de outubro de 2026. Desenvolvimento alternado com Codex e Claud
 4. [Contratos_tecnicos.md](Contratos_tecnicos.md): proposta de modelo de dados, estados e operações.
 5. [Roteiro_de_implementacao.md](Roteiro_de_implementacao.md): dependências das etapas e o que comprova conclusão.
 6. [Guia_para_agentes.md](Guia_para_agentes.md): papéis de Sol/Luna/Astra e Sonnet/Haiku/Opus, comandos e prompts de partida.
+7. [Integracao_backend.md](Integracao_backend.md): como ligar o app ao backend por `.env`, contrato HTTP, adaptadores de login/e-mail, endereços e mapa, backend falso e pendências.
 
 ## Como interpretar as fontes
 
@@ -29,7 +30,7 @@ Login sem senha por OTP no e-mail. Envio via Resend integrado ao Supabase Auth. 
 
 ## Estado atual
 
-A base Expo tem lockfile, catálogo Tamagui, mapa real OpenStreetMap e fluxo demo de busca, sugestões, espera/troca, proposta, chat, resumo versionado, viagem combinada e cancelamento, com telas de viagens/perfil demo. Consulte [Passagem_de_trabalho.md](Passagem_de_trabalho.md) e [mobile/README.md](../mobile/README.md) para verificações e roteiro navegável. Execução Android e validação visual não devem ser inferidas da compilação. Não há backend conectado, migrations aplicadas, envio de e-mail, contratação ou publicação.
+A base Expo tem lockfile, catálogo Tamagui, mapa real OpenStreetMap e fluxo demo de entrada por e-mail (código simulado) e cadastro, busca, sugestões, espera/troca, proposta (escolha da mesma opção), chat, viagem combinada e cancelamento, mais o ciclo pós-viagem (lembrete, avaliação com reciprocidade, viagem não realizada, denunciar/bloquear), com telas de viagens/perfil demo. O frontend mockado cobre todas as telas do MVP; falta validação no aparelho e tudo que depende de backend. Consulte [Passagem_de_trabalho.md](Passagem_de_trabalho.md) e [mobile/README.md](../mobile/README.md) para verificações e roteiro navegável. Execução Android e validação visual não devem ser inferidas da compilação. Existe backend em SQL (supabase/migrations, testado só em PGlite) mas nenhum projeto Supabase conectado nem migration aplicada; envio de e-mail, contratação ou publicação.
 
 ## Próximo passo nesta fase
 

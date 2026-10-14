@@ -14,8 +14,8 @@ export default function NotFound() {
         justifyContent="center"
       >
         <Heading>Página não encontrada</Heading>
-        <AppButton onPress={() => router.replace("/catalogo")}>
-          Voltar ao catálogo
+        <AppButton onPress={() => router.replace("/")}>
+          Voltar ao início
         </AppButton>
       </YStack>
     </SafeAreaView>

@@ -1,9 +1,12 @@
 import { Redirect, router } from "expo-router";
-import { YStack } from "tamagui";
+import { Pressable } from "react-native";
+import { services } from "../../services";
 import { AppButton, AppText, Feedback, Notice } from "../../ui/components";
 import { DemoPage } from "./DemoPage";
 import { clockTime } from "./domain";
-import { PersonCard, Quiet, TextAction } from "./JourneyUi";
+import { TextAction } from "./JourneyUi";
+import { StatusSteps } from "./Kit";
+import { PersonRow } from "./PersonCard";
 import { useDemo } from "./provider";
 
 export default function WaitingScreen() {
@@ -14,16 +17,9 @@ export default function WaitingScreen() {
   const expired = now >= state.intent.departure;
   return (
     <DemoPage
-      eyebrow="SOLICITAÇÃO ENVIADA"
-      title={
-        companion ? `Falta ${companion.name}\naceitar.` : "Nenhuma solicitação"
-      }
-      subtitle={
-        companion
-          ? "Seu interesse já foi enviado. A próxima etapa abre quando os dois aceitarem."
-          : "Continue vendo sugestões ou escolha outro horário."
-      }
-      step="1 de 2"
+      compact
+      demoNote="badge"
+      title={companion ? `Aguardando ${companion.name}` : "Nenhuma solicitação"}
       back="/sugestoes"
       footer={
         <>
@@ -32,7 +28,7 @@ export default function WaitingScreen() {
           </AppButton>
           {companion ? (
             <TextAction
-              label="Cancelar solicitação e buscar outra"
+              label="Cancelar solicitação"
               onPress={() => {
                 send({ type: "cancel" });
                 router.replace("/sugestoes");
@@ -50,34 +46,44 @@ export default function WaitingScreen() {
               {state.message}
             </Notice>
           ) : null}
-          <PersonCard waiting candidate={companion} intent={state.intent} />
-          <YStack gap={6}>
-            <AppText fontSize={15} fontWeight="700">
-              Você pode continuar explorando
-            </AppText>
-            <Quiet>
-              Esta solicitação fica aberta. Se quiser aceitar outra pessoa,
-              vamos pedir sua confirmação para trocar.
-            </Quiet>
-          </YStack>
-          <Quiet>
-            Ainda não é uma viagem confirmada. O chat abre quando os dois
-            aceitarem.
-          </Quiet>
-          <Quiet>
-            Solicitação válida até{" "}
+          <StatusSteps
+            steps={[
+              { label: "Você aceitou", state: "done" },
+              { label: `${companion.name} responde`, state: "current" },
+              { label: "Chat abre", state: "todo" },
+            ]}
+          />
+          <PersonRow candidate={companion} intent={state.intent} />
+          <AppText fontSize={13} lineHeight={19} color="$muted">
+            Válida até{" "}
             {clockTime(
               Math.min(state.intent.departure, companion.departure),
               state.intent.timeZone,
             )}
-            , seu horário escolhido.
-          </Quiet>
-          <YStack borderTopWidth={1} borderColor="$border" paddingTop={4}>
-            <TextAction
-              label="Demo: simular aceite da companhia"
+            . Pode continuar explorando; trocar de pessoa pede sua confirmação.
+          </AppText>
+          {services.config.demo ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Demo: simular aceite da companhia"
               onPress={() => send({ type: "simulate-match" })}
-            />
-          </YStack>
+              style={({ pressed }) => ({
+                alignSelf: "flex-start",
+                minHeight: 48,
+                justifyContent: "center",
+                paddingHorizontal: 12,
+                borderRadius: 12,
+                borderWidth: 1,
+                borderStyle: "dashed",
+                borderColor: "#82907E",
+                opacity: pressed ? 0.6 : 1,
+              })}
+            >
+              <AppText fontSize={12} lineHeight={17} color="$muted">
+                Demo · simular aceite de {companion.name}
+              </AppText>
+            </Pressable>
+          ) : null}
         </>
       ) : (
         <Feedback

@@ -8,7 +8,15 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { InputProps, TextProps } from "tamagui";
-import { Button, Input, Text, useTheme, XStack, YStack } from "tamagui";
+import {
+  Button,
+  Input,
+  Text,
+  TextArea,
+  useTheme,
+  XStack,
+  YStack,
+} from "tamagui";
 import { metrics, typography } from "./foundation";
 import { useUi } from "./provider";
 
@@ -128,10 +136,12 @@ export function Field({
 }: FieldProps) {
   const { textScale } = useUi();
   const messageId = useId();
+  // Na web, várias linhas exigem <textarea>; o Input do Tamagui é sempre <input>.
+  const Control = (props.multiline ? TextArea : Input) as typeof Input;
   return (
     <YStack gap="$xs">
       <AppText fontWeight="600">{label}</AppText>
-      <Input
+      <Control
         fontFamily="$body"
         fontSize={typography.size[4] * textScale}
         height="auto"
@@ -162,7 +172,7 @@ export function Field({
           color={error ? "$errorText" : "$muted"}
           role={error ? "alert" : undefined}
         >
-          {error ? `Erro: ${error}` : hint}
+          {error ?? hint}
         </AppText>
       ) : null}
     </YStack>
@@ -379,7 +389,7 @@ export function AppModal({
   open: boolean;
   onClose: () => void;
   title: string;
-  description: string;
+  description?: string;
   children: ReactNode;
 }) {
   return (
@@ -416,12 +426,34 @@ export function AppModal({
               maxWidth={560}
               alignSelf="center"
             >
-              <Heading>{title}</Heading>
-              <AppText color="$muted">{description}</AppText>
+              <XStack alignItems="flex-start" gap="$sm">
+                <YStack flex={1}>
+                  <Heading>{title}</Heading>
+                </YStack>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Fechar"
+                  onPress={onClose}
+                  hitSlop={8}
+                  style={({ pressed }) => ({
+                    width: 48,
+                    height: 48,
+                    marginTop: -8,
+                    marginRight: -8,
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity: pressed ? 0.6 : 1,
+                  })}
+                >
+                  <AppText fontSize={22} lineHeight={26} aria-hidden>
+                    ✕
+                  </AppText>
+                </Pressable>
+              </XStack>
+              {description ? (
+                <AppText color="$muted">{description}</AppText>
+              ) : null}
               {children}
-              <AppButton variant="secondary" onPress={onClose}>
-                Fechar
-              </AppButton>
             </YStack>
           </ScrollView>
         </SafeAreaView>

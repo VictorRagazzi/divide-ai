@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { Pressable, View } from "react-native";
 import { XStack, YStack } from "tamagui";
 import { AppText } from "../../ui/components";
-import { type Candidate, clockTime, commonWindow, type Intent } from "./domain";
 
 export function TextAction({
   label,
@@ -15,7 +14,7 @@ export function TextAction({
   onPress: () => void;
   accessibilityLabel?: string;
   danger?: boolean;
-  icon?: "person" | "search" | "calendar" | "clock";
+  icon?: IconKind;
 }) {
   return (
     <Pressable
@@ -43,12 +42,21 @@ export function TextAction({
     </Pressable>
   );
 }
+export type IconKind =
+  | "person"
+  | "search"
+  | "calendar"
+  | "clock"
+  | "locate"
+  | "pin"
+  | "back";
 export function LineIcon({
   kind,
+  color = "#5F685C",
 }: {
-  kind: "person" | "search" | "calendar" | "clock";
+  kind: IconKind;
+  color?: string;
 }) {
-  const color = "#5F685C";
   return (
     <View
       aria-hidden
@@ -149,6 +157,105 @@ export function LineIcon({
             />
           ))}
         </>
+      ) : kind === "locate" ? (
+        <>
+          <View
+            style={{
+              position: "absolute",
+              left: 3,
+              top: 3,
+              width: 12,
+              height: 12,
+              borderWidth: 1.5,
+              borderColor: color,
+              borderRadius: 7,
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              left: 7,
+              top: 7,
+              width: 4,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: color,
+            }}
+          />
+          {[
+            { left: 8.5, top: 0, width: 1.5, height: 3 },
+            { left: 8.5, top: 15, width: 1.5, height: 3 },
+            { left: 0, top: 8.5, width: 3, height: 1.5 },
+            { left: 15, top: 8.5, width: 3, height: 1.5 },
+          ].map((tick) => (
+            <View
+              key={`${tick.left}-${tick.top}`}
+              style={{ position: "absolute", backgroundColor: color, ...tick }}
+            />
+          ))}
+        </>
+      ) : kind === "pin" ? (
+        <>
+          <View
+            style={{
+              position: "absolute",
+              left: 3,
+              top: 1,
+              width: 12,
+              height: 12,
+              borderWidth: 1.5,
+              borderColor: color,
+              borderRadius: 7,
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              left: 7,
+              top: 5,
+              width: 4,
+              height: 4,
+              borderRadius: 2,
+              backgroundColor: color,
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              left: 8.2,
+              top: 12,
+              width: 1.5,
+              height: 5,
+              backgroundColor: color,
+            }}
+          />
+        </>
+      ) : kind === "back" ? (
+        <>
+          <View
+            style={{
+              position: "absolute",
+              left: 5,
+              top: 5,
+              width: 9,
+              height: 9,
+              borderLeftWidth: 1.8,
+              borderBottomWidth: 1.8,
+              borderColor: color,
+              transform: [{ rotate: "45deg" }],
+            }}
+          />
+          <View
+            style={{
+              position: "absolute",
+              left: 3,
+              top: 8.2,
+              width: 13,
+              height: 1.8,
+              backgroundColor: color,
+            }}
+          />
+        </>
       ) : (
         <>
           <View
@@ -224,128 +331,5 @@ export function RouteLines({
         </AppText>
       </YStack>
     </XStack>
-  );
-}
-export function PersonCard({
-  candidate,
-  intent,
-  waiting = false,
-}: {
-  candidate: Candidate;
-  intent: Intent;
-  waiting?: boolean;
-}) {
-  const window = commonWindow(intent, candidate);
-  const total = intent.passengers + candidate.passengers;
-  return (
-    <YStack
-      backgroundColor="$surface"
-      borderWidth={1}
-      borderColor="$border"
-      borderRadius={22}
-      padding={18}
-      gap={12}
-    >
-      <AppText
-        fontSize={10}
-        lineHeight={15}
-        letterSpacing={waiting ? 0 : 1.1}
-        color="$muted"
-        fontWeight="600"
-      >
-        {waiting ? "●  Aguardando resposta" : "NO SEU CAMINHO"}
-      </AppText>
-      <AppText
-        fontSize={waiting ? 30 : 36}
-        lineHeight={waiting ? 34 : 40}
-        fontWeight="700"
-        letterSpacing={-1.2}
-      >
-        {candidate.name}
-      </AppText>
-      <AppText fontSize={12} lineHeight={18}>
-        ★ {candidate.rating}{" "}
-        <AppText fontSize={11} color="$muted">
-          {" "}
-          · {candidate.trips} viagens · {candidate.passengers}{" "}
-          {candidate.passengers === 1 ? "passageiro" : "passageiros"}
-        </AppText>
-      </AppText>
-      {!waiting ? (
-        <YStack borderTopWidth={1} borderColor="$border" paddingTop={12}>
-          <AppText fontSize={13} fontWeight="600">
-            ◷{" "}
-            {new Intl.DateTimeFormat("pt-BR", {
-              day: "2-digit",
-              month: "2-digit",
-              timeZone: intent.timeZone,
-            }).format(candidate.departure)}{" "}
-            · {clockTime(candidate.departure, intent.timeZone)}
-          </AppText>
-        </YStack>
-      ) : null}
-      {candidate.fixed ? <Quiet>Precisa sair nesse horário</Quiet> : null}
-      <XStack
-        backgroundColor="$success"
-        borderRadius={10}
-        padding={10}
-        gap={6}
-        flexWrap="wrap"
-        justifyContent="space-between"
-        alignItems="center"
-      >
-        <AppText fontSize={10} lineHeight={16} color="$muted">
-          {waiting ? "Horário compatível" : "Horário que funciona para vocês"}
-        </AppText>
-        <AppText
-          fontSize={14}
-          lineHeight={20}
-          color="$primary"
-          fontWeight="700"
-        >
-          {window
-            ? `${clockTime(window.start, intent.timeZone)}${window.start === window.end ? "" : `–${clockTime(window.end, intent.timeZone)}`}`
-            : "Indisponível"}
-        </AppText>
-      </XStack>
-      <XStack>
-        <YStack flex={1} gap={4} paddingRight={10}>
-          <AppText fontSize={24} lineHeight={28} fontWeight="700">
-            {candidate.pickup}{" "}
-            <AppText fontSize={11} color="$muted">
-              m a pé
-            </AppText>
-          </AppText>
-          <Quiet>Da sua origem{"\n"}até o embarque</Quiet>
-        </YStack>
-        <YStack
-          flex={1}
-          gap={4}
-          paddingLeft={16}
-          borderLeftWidth={1}
-          borderColor="$border"
-        >
-          <AppText fontSize={24} lineHeight={28} fontWeight="700">
-            {candidate.dropoff}{" "}
-            <AppText fontSize={11} color="$muted">
-              m a pé
-            </AppText>
-          </AppText>
-          <Quiet>Do desembarque{"\n"}até seu destino</Quiet>
-        </YStack>
-      </XStack>
-      <YStack backgroundColor="$background" borderRadius={8} padding={9}>
-        <AppText
-          fontSize={10}
-          lineHeight={16}
-          textAlign="center"
-          color="$primary"
-        >
-          {total === 2
-            ? "Divisão igual: metade para cada pessoa"
-            : `Divisão por pessoa: você ${intent.passengers}/${total} · ${candidate.name} ${candidate.passengers}/${total}`}
-        </AppText>
-      </YStack>
-    </YStack>
   );
 }

@@ -20,13 +20,14 @@ Versão 3 • 8 de outubro de 2026. Este documento registra o fechamento da conv
 | Expiração | Busca e solicitações pendentes vencem no horário originalmente escolhido, sem estender pela flexibilidade |
 | Sugestões | Navegar livremente; pular pode permitir reaparecimento ao reabrir, se o perfil continuar elegível |
 | Solicitações | Uma pendente por vez; aceitar outra exige modal de troca com nomes e consequência explícitos |
-| Negociação | Aceite mútuo, depois confirmação da mesma versão do resumo; mudanças reiniciam confirmações |
+| Negociação | Aceite mútuo, depois cada um escolhe uma opção concreta (conteúdo comparado, não o botão); a viagem fecha quando as escolhas coincidem e mudar a escolha desfaz o acordo (sem etapa separada de resumo; demo 12/10/2026) |
 | Capacidade e rateio | Até três passageiros contando acompanhantes; divisão igual por pessoa |
 | Privacidade inicial | Foto e endereços exatos ocultos antes do aceite mútuo |
 | Orçamento | Prioridade ao menor custo possível; início sem gastos com mapas |
 | Restrição atual de orçamento (10/10/2026) | Projeto sem orçamento; não ativar nenhuma assinatura, billing ou serviço pago |
 | Referência visual (10/10/2026) | Idealizador desenvolveu até a tela 04; telas seguintes geradas por agente devem adotar os padrões das primeiras quatro |
 | Lote atual (10/10/2026) | Correção visual e fluxo principal mockado autorizados, incluindo proposta/chat/resumo/acordo; sem integração real ou publicação |
+| Preparação para integração (12/10/2026) | Idealizador pediu o protótipo pronto para o backend: configuração por `.env`, adaptadores de login/e-mail, dados, endereços e mapa. Implementado e testado só contra backend falso; ver Integracao_backend.md. Nenhum serviço real ativado |
 | Remetente Divide aí <acesso@divideai.com> | Confirmado mas não testado |
 | OTP válido por 10 minutos e reenvio após 60 segundos | Confirmado |
 | Google Maps SDK + Places + Routes | Proposta de integração futura; faturamento não habilitado nesta fase |
@@ -34,6 +35,13 @@ Versão 3 • 8 de outubro de 2026. Este documento registra o fechamento da conv
 | Tentativa com terceiro frustrada preserva acordo da dupla | No momento não implementar, MVP com apenas duplas |
 | Revelação de avaliações por par no grupo de três | No momento não implementar, MVP com apenas duplas |
 | Trabalho atual | Documentar o plano para agentes futuros; implementação local interrompida |
+
+## Confirmado em 13 de outubro de 2026 (backend)
+
+- Distância de caminhada = percurso a pé calculado no mapa (não linha reta). Fornecedor de rotas ainda a escolher.
+- Fim da viagem = 1 hora depois do horário combinado.
+- O endereço da outra pessoa aparece depois do aceite mútuo, ao escolher o ponto dela.
+- Quem nunca avalia recebe nota; só não vê as avaliações até avaliar.
 
 ## Direção de execução escolhida nesta passagem
 

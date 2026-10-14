@@ -88,6 +88,37 @@ export function CompanionCard({
   );
 }
 
+export function IncomingConfirmation({
+  open,
+  incomingName,
+  nextName,
+  onClose,
+  onConfirm,
+}: {
+  open: boolean;
+  incomingName: string;
+  nextName: string;
+  onClose: () => void;
+  onConfirm: () => void;
+}) {
+  return (
+    <AppModal
+      open={open}
+      onClose={onClose}
+      title="Já tem alguém querendo viajar com você"
+      description={`${incomingName} pediu para viajar com você. Para aceitar ${nextName}, a solicitação de ${incomingName} será recusada. A viagem ainda não estará confirmada; ${nextName} também precisa aceitar.`}
+    >
+      <AppButton
+        onPress={onConfirm}
+      >{`Recusar ${incomingName} e aceitar ${nextName}`}</AppButton>
+      <AppButton
+        variant="secondary"
+        onPress={onClose}
+      >{`Voltar e ver ${incomingName}`}</AppButton>
+    </AppModal>
+  );
+}
+
 export function SwapConfirmation({
   open,
   currentName,

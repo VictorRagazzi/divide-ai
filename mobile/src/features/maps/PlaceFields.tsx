@@ -24,7 +24,13 @@ export function PlaceFields({
   autofocus?: boolean;
 }) {
   return (
-    <YStack gap={4} backgroundColor="$background" padding={8} borderRadius={12}>
+    <YStack
+      position="relative"
+      gap={4}
+      backgroundColor="$background"
+      padding={8}
+      borderRadius={12}
+    >
       <YStack
         position="absolute"
         left={17.5}
@@ -68,6 +74,7 @@ export function PlaceFields({
             minWidth={0}
             height={48}
             fontSize={14}
+            textOverflow="ellipsis"
             borderWidth={1}
             borderColor={
               selected === endpoint && !disabled ? "$primary" : "transparent"

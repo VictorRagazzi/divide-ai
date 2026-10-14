@@ -4,14 +4,21 @@ import { View } from "react-native";
 import { Gesture, GestureDetector } from "react-native-gesture-handler";
 import { XStack, YStack } from "tamagui";
 import { AppButton, Feedback, Notice } from "../../ui/components";
-import { SwapConfirmation } from "../../ui/product";
+import { IncomingConfirmation, SwapConfirmation } from "../../ui/product";
 import { DemoPage } from "./DemoPage";
 import { eligible } from "./domain";
-import { PersonCard, Quiet, TextAction } from "./JourneyUi";
+import { Quiet } from "./JourneyUi";
+import { Chip } from "./Kit";
+import { PersonCard } from "./PersonCard";
 import { useDemo } from "./provider";
 
 export default function SuggestionsScreen() {
   const { state, now, send } = useDemo();
+  const [incomingSwap, setIncomingSwap] = useState<{
+    id: string;
+    name: string;
+    revision: number;
+  } | null>(null);
   const [swap, setSwap] = useState<{
     id: string;
     name: string;
@@ -23,9 +30,11 @@ export default function SuggestionsScreen() {
   const intent = state.intent;
   const expired = now >= intent.departure;
   const pending = state.candidates.find((c) => c.id === state.pending);
+  const incoming = state.candidates.find((c) => c.id === state.incoming);
   const candidates = state.candidates.filter(
     (c) =>
       c.id !== state.pending &&
+      c.id !== state.incoming &&
       !state.skipped.includes(c.id) &&
       eligible(intent, c, now),
   );
@@ -35,7 +44,13 @@ export default function SuggestionsScreen() {
   };
   const accept = () => {
     if (!candidate) return;
-    if (pending)
+    if (incoming)
+      setIncomingSwap({
+        id: candidate.id,
+        name: candidate.name,
+        revision: state.revision,
+      });
+    else if (pending)
       setSwap({
         id: candidate.id,
         name: candidate.name,
@@ -43,12 +58,14 @@ export default function SuggestionsScreen() {
         revision: state.revision,
       });
     else {
-      send({
-        type: "request",
-        id: candidate.id,
-        expectedRevision: state.revision,
-      });
-      router.push("/espera");
+      send(
+        {
+          type: "request",
+          id: candidate.id,
+          expectedRevision: state.revision,
+        },
+        () => router.push("/espera"),
+      );
     }
   };
   const pan = Gesture.Pan()
@@ -61,10 +78,9 @@ export default function SuggestionsScreen() {
     });
   return (
     <DemoPage
-      eyebrow="ENCONTRAR COMPANHIA"
+      compact
+      demoNote="badge"
       title="Quem vai com você?"
-      subtitle="Passe para explorar. Aceite para demonstrar interesse."
-      step="1 de 2"
       back="/busca"
       footer={
         <>
@@ -89,21 +105,29 @@ export default function SuggestionsScreen() {
               {expired ? "Escolher outro horário" : "Rever sugestões puladas"}
             </AppButton>
           )}
-          <Quiet>Aceitar companhia ainda não confirma a viagem.</Quiet>
+          <Quiet>Aceitar ainda não confirma a viagem.</Quiet>
         </>
       }
     >
+      {incoming ? (
+        <Chip
+          fullWidth
+          tone="success"
+          icon="person"
+          label={`${incoming.name} quer viajar com você · ver`}
+          accessibilityLabel={`${incoming.name} quer viajar com você. Ver solicitação`}
+          onPress={() => router.push("/busca")}
+        />
+      ) : null}
       {pending ? (
-        <YStack
-          backgroundColor="$success"
-          borderRadius={12}
-          paddingHorizontal={12}
-        >
-          <TextAction
-            label={`Aguardando ${pending.name} · ver solicitação`}
-            onPress={() => router.push("/espera")}
-          />
-        </YStack>
+        <Chip
+          fullWidth
+          tone="success"
+          icon="clock"
+          label={`Aguardando ${pending.name} · ver`}
+          accessibilityLabel={`Aguardando ${pending.name}. Ver solicitação`}
+          onPress={() => router.push("/espera")}
+        />
       ) : null}
       {candidate ? (
         <GestureDetector gesture={pan}>
@@ -118,16 +142,34 @@ export default function SuggestionsScreen() {
           description={
             expired
               ? "A flexibilidade não prolonga a busca."
-              : "A busca continua até o horário escolhido. Você pode rever as pessoas que pulou."
+              : "A busca segue aberta até o horário escolhido. Você pode rever as que pulou."
           }
         />
       )}
-      <Quiet>Pulou? A sugestão pode reaparecer ao abrir o app novamente.</Quiet>
       {swap && state.message ? (
         <Notice title="Solicitação" live>
           {state.message}
         </Notice>
       ) : null}
+      <IncomingConfirmation
+        open={Boolean(incomingSwap)}
+        incomingName={incoming?.name ?? ""}
+        nextName={incomingSwap?.name ?? ""}
+        onClose={() => setIncomingSwap(null)}
+        onConfirm={() => {
+          if (!incomingSwap) return;
+          send(
+            {
+              type: "request",
+              id: incomingSwap.id,
+              expectedRevision: incomingSwap.revision,
+              declineIncoming: true,
+            },
+            () => router.push("/espera"),
+          );
+          setIncomingSwap(null);
+        }}
+      />
       <SwapConfirmation
         open={Boolean(swap)}
         currentName={swap?.currentName ?? ""}
@@ -135,13 +177,15 @@ export default function SuggestionsScreen() {
         onClose={() => setSwap(null)}
         onConfirm={() => {
           if (!swap) return;
-          send({
-            type: "request",
-            id: swap.id,
-            expectedRevision: swap.revision,
-          });
+          send(
+            {
+              type: "request",
+              id: swap.id,
+              expectedRevision: swap.revision,
+            },
+            () => router.push("/espera"),
+          );
           setSwap(null);
-          router.push("/espera");
         }}
       />
     </DemoPage>

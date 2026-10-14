@@ -48,11 +48,14 @@
     "test:demo": "node --experimental-strip-types --test tests/demo-domain.test.mjs",
     "test:maps": "node --experimental-strip-types --test tests/maps.test.mjs",
     "test:addresses": "node --experimental-strip-types --test tests/addresses.test.mjs",
+    "test:services": "node --experimental-strip-types --test tests/services.test.mjs",
+    "test:backend": "node --experimental-strip-types --test ../supabase/tests/*.test.mjs",
+    "test": "npm run test:demo && npm run test:maps && npm run test:addresses && npm run test:services",
     "vendor:maps": "node tools/vendor_leaflet.mjs",
     "check": "npm run lint && npm run typecheck",
     "doctor": "expo-doctor",
-    "export:android": "expo export --platform android --output-dir dist/android --max-workers 2",
-    "export:web": "expo export --platform web --output-dir dist/web --max-workers 2"
+    "export:android": "expo export --platform android --output-dir dist/android --max-workers 2 --clear",
+    "export:web": "expo export --platform web --output-dir dist/web --max-workers 2 --clear"
   },
   "engines": {
     "node": ">=22.13.0"
